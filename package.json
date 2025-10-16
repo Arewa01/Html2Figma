@@ -1,0 +1,30 @@
+{
+    "name": "html-to-figma-plugin",
+    "version": "1.0.0",
+    "description": "A Figma plugin that converts websites to Figma designs",
+    "main": "code.js",
+    "scripts": {
+        "build": "echo 'No build step required for basic plugin'",
+        "dev": "echo 'Plugin ready for development - load in Figma'",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:coverage": "vitest run --coverage"
+    },
+    "keywords": [
+        "figma",
+        "plugin",
+        "html",
+        "website",
+        "converter",
+        "design"
+    ],
+    "author": "Your Name",
+    "license": "MIT",
+    "devDependencies": {
+        "@figma/plugin-typings": "^1.75.0",
+        "vitest": "^1.0.4",
+        "jsdom": "^23.0.1",
+        "@vitest/coverage-v8": "^1.0.4",
+        "happy-dom": "^12.10.3"
+    }
+}

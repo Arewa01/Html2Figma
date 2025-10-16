@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>HTML to Figma Converter</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: var(--figma-color-bg);
+      color: var(--figma-color-text);
+      font-size: 12px;
+    }
+    
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      height: 100%;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    
+    .header h1 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--figma-color-text);
+    }
+    
+    .header p {
+      margin: 4px 0 0 0;
+      font-size: 11px;
+      color: var(--figma-color-text-secondary);
+    }
+    
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--figma-color-text);
+    }
+    
+    input[type="url"] {
+      padding: 8px 12px;
+      border: 1px solid var(--figma-color-border);
+      border-radius: 6px;
+      background: var(--figma-color-bg);
+      color: var(--figma-color-text);
+      font-size: 12px;
+      font-family: inherit;
+    }
+    
+    input[type="url"]:focus {
+      outline: none;
+      border-color: var(--figma-color-border-selected);
+      box-shadow: 0 0 0 1px var(--figma-color-border-selected);
+    }
+    
+    .viewport-selector {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+      gap: 6px;
+    }
+    
+    .custom-viewport {
+      margin-top: 12px;
+      padding: 12px;
+      background: var(--figma-color-bg-secondary);
+      border-radius: 6px;
+      border: 1px solid var(--figma-color-border);
+    }
+    
+    .custom-inputs {
+      display: flex;
+      gap: 12px;
+    }
+    
+    .input-row {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    
+    .input-row label {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--figma-color-text-secondary);
+    }
+    
+    .input-row input {
+      padding: 6px 8px;
+      border: 1px solid var(--figma-color-border);
+      border-radius: 4px;
+      background: var(--figma-color-bg);
+      color: var(--figma-color-text);
+      font-size: 11px;
+      font-family: inherit;
+    }
+    
+    .input-row input:focus {
+      outline: none;
+      border-color: var(--figma-color-border-selected);
+      box-shadow: 0 0 0 1px var(--figma-color-border-selected);
+    }
+    
+    .viewport-option {
+      padding: 8px 6px;
+      border: 1px solid var(--figma-color-border);
+      border-radius: 6px;
+      background: var(--figma-color-bg);
+      color: var(--figma-color-text);
+      font-size: 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      min-height: 50px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    
+    .viewport-option:hover {
+      background: var(--figma-color-bg-hover);
+    }
+    
+    .viewport-option.active {
+      background: var(--figma-color-bg-brand);
+      color: var(--figma-color-text-onbrand);
+      border-color: var(--figma-color-bg-brand);
+    }
+    
+    .convert-btn {
+      padding: 12px 16px;
+      background: var(--figma-color-bg-brand);
+      color: var(--figma-color-text-onbrand);
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .convert-btn:hover:not(:disabled) {
+      background: var(--figma-color-bg-brand-hover);
+    }
+    
+    .convert-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .progress-container {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      padding: 16px;
+      background: var(--figma-color-bg-secondary);
+      border-radius: 6px;
+      border: 1px solid var(--figma-color-border);
+    }
+    
+    .progress-bar {
+      width: 100%;
+      height: 4px;
+      background: var(--figma-color-border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: var(--figma-color-bg-brand);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    
+    .progress-text {
+      font-size: 11px;
+      color: var(--figma-color-text-secondary);
+      text-align: center;
+    }
+    
+    .error-message {
+      display: none;
+      padding: 16px;
+      background: var(--figma-color-bg-danger);
+      color: var(--figma-color-text-ondanger);
+      border-radius: 6px;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    
+    .error-title {
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+    
+    .error-details {
+      margin-bottom: 12px;
+      opacity: 0.9;
+    }
+    
+    .error-suggestions {
+      margin-bottom: 12px;
+    }
+    
+    .error-suggestions ul {
+      margin: 4px 0 0 0;
+      padding-left: 16px;
+    }
+    
+    .error-suggestions li {
+      margin-bottom: 2px;
+    }
+    
+    .error-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    
+    .retry-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: var(--figma-color-text-ondanger);
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .retry-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    
+    .success-message {
+      display: none;
+      padding: 12px;
+      background: var(--figma-color-bg-success);
+      color: var(--figma-color-text-onsuccess);
+      border-radius: 6px;
+      font-size: 11px;
+    }
+    
+    .backend-status {
+      margin-bottom: 16px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--figma-color-border);
+      background: var(--figma-color-bg-secondary);
+    }
+    
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: space-between;
+    }
+    
+    .test-backend-btn {
+      background: none;
+      border: 1px solid var(--figma-color-border);
+      border-radius: 4px;
+      color: var(--figma-color-text-secondary);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 4px 6px;
+      transition: all 0.2s;
+    }
+    
+    .test-backend-btn:hover {
+      background: var(--figma-color-bg-hover);
+      color: var(--figma-color-text);
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--figma-color-text-tertiary);
+      transition: background-color 0.3s ease;
+    }
+    
+    .status-dot.connected {
+      background: #10b981; /* Green */
+    }
+    
+    .status-dot.disconnected {
+      background: #ef4444; /* Red */
+    }
+    
+    .status-dot.checking {
+      background: #f59e0b; /* Yellow */
+      animation: pulse 1.5s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .status-text {
+      font-size: 11px;
+      color: var(--figma-color-text-secondary);
+    }
+    
+    .footer {
+      margin-top: auto;
+      text-align: center;
+      font-size: 10px;
+      color: var(--figma-color-text-tertiary);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>HTML to Figma</h1>
+      <p>Convert any website into Figma designs</p>
+    </div>
+    
+    <div class="backend-status" id="backend-status">
+      <div class="status-indicator" id="status-indicator">
+        <span class="status-dot" id="status-dot"></span>
+        <span class="status-text" id="status-text">Checking backend service...</span>
+        <button class="test-backend-btn" id="test-backend-btn" title="Test backend connection">
+          ↻
+        </button>
+      </div>
+    </div>
+    
+    <div class="input-group">
+      <label for="url-input">Website URL</label>
+      <input 
+        type="url" 
+        id="url-input" 
+        placeholder="https://example.com"
+        value=""
+      >
+    </div>
+    
+    <div class="input-group">
+      <label>Viewport Size</label>
+      <div class="viewport-selector">
+        <div class="viewport-option active" data-viewport="desktop">
+          Desktop<br><small>1200×800</small>
+        </div>
+        <div class="viewport-option" data-viewport="laptop">
+          Laptop<br><small>1024×768</small>
+        </div>
+        <div class="viewport-option" data-viewport="tablet">
+          Tablet<br><small>768×1024</small>
+        </div>
+        <div class="viewport-option" data-viewport="mobile">
+          Mobile<br><small>375×667</small>
+        </div>
+        <div class="viewport-option" data-viewport="mobile-large">
+          Large Mobile<br><small>414×896</small>
+        </div>
+        <div class="viewport-option" data-viewport="custom">
+          Custom<br><small>Set size</small>
+        </div>
+      </div>
+      
+      <div class="custom-viewport" id="custom-viewport" style="display: none;">
+        <div class="custom-inputs">
+          <div class="input-row">
+            <label for="custom-width">Width:</label>
+            <input type="number" id="custom-width" min="320" max="3840" value="1200">
+          </div>
+          <div class="input-row">
+            <label for="custom-height">Height:</label>
+            <input type="number" id="custom-height" min="240" max="2160" value="800">
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <button class="convert-btn" id="convert-btn">
+      Convert Website
+    </button>
+    
+    <div class="progress-container" id="progress-container">
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="progress-text" id="progress-text">Starting conversion...</div>
+    </div>
+    
+    <div class="error-message" id="error-message">
+      <div class="error-title" id="error-title"></div>
+      <div class="error-details" id="error-details"></div>
+      <div class="error-suggestions" id="error-suggestions"></div>
+      <div class="error-actions" id="error-actions"></div>
+    </div>
+    <div class="success-message" id="success-message"></div>
+    
+    <div class="footer">
+      Made with ❤️ for designers
+    </div>
+  </div>
+
+  <script>
+    // Viewport configurations
+    const viewports = {
+      desktop: { width: 1200, height: 800, name: 'Desktop' },
+      laptop: { width: 1024, height: 768, name: 'Laptop' },
+      tablet: { width: 768, height: 1024, name: 'Tablet' },
+      mobile: { width: 375, height: 667, name: 'Mobile' },
+      'mobile-large': { width: 414, height: 896, name: 'Large Mobile' },
+      custom: { width: 1200, height: 800, name: 'Custom' }
+    };
+    
+    let selectedViewport = 'desktop';
+    
+    // DOM elements
+    const urlInput = document.getElementById('url-input');
+    const convertBtn = document.getElementById('convert-btn');
+    const progressContainer = document.getElementById('progress-container');
+    const progressFill = document.getElementById('progress-fill');
+    const progressText = document.getElementById('progress-text');
+    const errorMessage = document.getElementById('error-message');
+    const successMessage = document.getElementById('success-message');
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const testBackendBtn = document.getElementById('test-backend-btn');
+    const errorTitle = document.getElementById('error-title');
+    const errorDetails = document.getElementById('error-details');
+    const errorSuggestions = document.getElementById('error-suggestions');
+    const errorActions = document.getElementById('error-actions');
+    const customWidth = document.getElementById('custom-width');
+    const customHeight = document.getElementById('custom-height');
+    
+    // Viewport selector handling
+    document.querySelectorAll('.viewport-option').forEach(option => {
+      option.addEventListener('click', () => {
+        document.querySelectorAll('.viewport-option').forEach(opt => opt.classList.remove('active'));
+        option.classList.add('active');
+        selectedViewport = option.dataset.viewport;
+        
+        // Show/hide custom viewport inputs
+        const customViewport = document.getElementById('custom-viewport');
+        if (selectedViewport === 'custom') {
+          customViewport.style.display = 'block';
+        } else {
+          customViewport.style.display = 'none';
+        }
+      });
+    });
+    
+    // Custom viewport input handling
+    const customWidth = document.getElementById('custom-width');
+    const customHeight = document.getElementById('custom-height');
+    
+    customWidth.addEventListener('input', updateCustomViewport);
+    customHeight.addEventListener('input', updateCustomViewport);
+    
+    function updateCustomViewport() {
+      const width = parseInt(customWidth.value) || 1200;
+      const height = parseInt(customHeight.value) || 800;
+      
+      viewports.custom = {
+        width: Math.max(320, Math.min(3840, width)),
+        height: Math.max(240, Math.min(2160, height)),
+        name: 'Custom'
+      };
+    }
+    
+    // Convert button handling
+    convertBtn.addEventListener('click', () => {
+      const url = urlInput.value.trim();
+      
+      if (!url) {
+        showError('Please enter a valid URL');
+        return;
+      }
+      
+      if (!isValidUrl(url)) {
+        showError('Please enter a valid URL (must start with http:// or https://)');
+        return;
+      }
+      
+      startConversion(url);
+    });
+    
+    // Enter key handling
+    urlInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        convertBtn.click();
+      }
+    });
+    
+    // Test backend button handling
+    testBackendBtn.addEventListener('click', () => {
+      statusDot.className = 'status-dot checking';
+      statusText.textContent = 'Testing backend connection...';
+      
+      parent.postMessage({
+        pluginMessage: {
+          type: 'test-backend'
+        }
+      }, '*');
+    });
+    
+    // Start conversion process
+    function startConversion(url) {
+      hideMessages();
+      showProgress();
+      convertBtn.disabled = true;
+      convertBtn.textContent = 'Converting...';
+      
+      // Get current viewport configuration
+      const viewport = viewports[selectedViewport];
+      
+      // Send message to plugin main thread
+      parent.postMessage({
+        pluginMessage: {
+          type: 'convert-website',
+          url: url,
+          viewport: {
+            width: viewport.width,
+            height: viewport.height,
+            name: viewport.name
+          }
+        }
+      }, '*');
+    }
+    
+    // Handle messages from plugin main thread
+    window.onmessage = (event) => {
+      const msg = event.data.pluginMessage;
+      
+      switch (msg.type) {
+        case 'progress':
+          updateProgress(msg.progress, msg.message);
+          break;
+          
+        case 'complete':
+          hideProgress();
+          showSuccess(msg.message, msg.stats);
+          resetUI();
+          break;
+          
+        case 'error':
+          hideProgress();
+          showError(msg.message, msg.details, msg.suggestions, msg.canRetry);
+          resetUI();
+          break;
+          
+        case 'backend-status':
+          updateBackendStatus(msg.available, msg.url);
+          break;
+      }
+    };
+    
+    // UI helper functions
+    function showProgress() {
+      progressContainer.style.display = 'flex';
+    }
+    
+    function hideProgress() {
+      progressContainer.style.display = 'none';
+    }
+    
+    function updateProgress(percent, message) {
+      progressFill.style.width = percent + '%';
+      progressText.textContent = message;
+    }
+    
+    function showError(message, details, suggestions, canRetry) {
+      const errorTitle = document.getElementById('error-title');
+      const errorDetails = document.getElementById('error-details');
+      const errorSuggestions = document.getElementById('error-suggestions');
+      const errorActions = document.getElementById('error-actions');
+      
+      // Set error title
+      errorTitle.textContent = message || 'Error';
+      
+      // Set error details
+      errorDetails.textContent = details || '';
+      errorDetails.style.display = details ? 'block' : 'none';
+      
+      // Set suggestions
+      if (suggestions && suggestions.length > 0) {
+        errorSuggestions.innerHTML = `
+          <strong>Suggestions:</strong>
+          <ul>
+            ${suggestions.map(suggestion => `<li>${suggestion}</li>`).join('')}
+          </ul>
+        `;
+        errorSuggestions.style.display = 'block';
+      } else {
+        errorSuggestions.style.display = 'none';
+      }
+      
+      // Set actions
+      if (canRetry) {
+        errorActions.innerHTML = '<button class="retry-btn" onclick="retryConversion()">Try Again</button>';
+        errorActions.style.display = 'flex';
+      } else {
+        errorActions.style.display = 'none';
+      }
+      
+      errorMessage.style.display = 'block';
+      
+      // Auto-hide after 10 seconds for non-critical errors
+      if (!canRetry) {
+        setTimeout(() => {
+          errorMessage.style.display = 'none';
+        }, 10000);
+      }
+    }
+    
+    function retryConversion() {
+      hideMessages();
+      convertBtn.click();
+    }
+    
+    function showSuccess(message, stats) {
+      let content = message;
+      
+      if (stats) {
+        content += `\n\nConversion Statistics:`;
+        content += `\n• Elements created: ${stats.totalElements}`;
+        if (stats.imagesProcessed > 0) {
+          content += `\n• Images processed: ${stats.imagesProcessed}`;
+        }
+        if (stats.failedElements > 0) {
+          content += `\n• Failed elements: ${stats.failedElements}`;
+        }
+        content += `\n• Time taken: ${stats.conversionTime}s`;
+        
+        // Add performance metrics if available
+        if (stats.performanceReport) {
+          const report = stats.performanceReport;
+          content += `\n• Processing rate: ${report.elementsPerSecond} elements/sec`;
+          content += `\n• Success rate: ${report.successRate}%`;
+          if (report.batchesProcessed > 0) {
+            content += `\n• Batches processed: ${report.batchesProcessed}`;
+          }
+        }
+      }
+      
+      successMessage.textContent = content;
+      successMessage.style.display = 'block';
+      setTimeout(() => {
+        successMessage.style.display = 'none';
+      }, 8000); // Show longer for more detailed stats
+    }
+    
+    function hideMessages() {
+      errorMessage.style.display = 'none';
+      successMessage.style.display = 'none';
+    }
+    
+    function resetUI() {
+      convertBtn.disabled = false;
+      convertBtn.textContent = 'Convert Website';
+    }
+    
+    function updateBackendStatus(available, url) {
+      statusDot.className = 'status-dot';
+      
+      if (available) {
+        statusDot.classList.add('connected');
+        statusText.textContent = 'Backend service connected';
+        convertBtn.disabled = false;
+      } else {
+        statusDot.classList.add('disconnected');
+        statusText.textContent = 'Backend service unavailable - please start the backend server';
+        convertBtn.disabled = true;
+      }
+    }
+    
+    function isValidUrl(string) {
+      try {
+        const url = new URL(string);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+      } catch (_) {
+        return false;
+      }
+    }
+  </script>
+</body>
+</html>

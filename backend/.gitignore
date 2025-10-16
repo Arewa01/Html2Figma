@@ -1,0 +1,55 @@
+# Backend specific gitignore
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.development
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+.nyc_output/
+
+# Puppeteer downloads
+.cache/
+.local-chromium/
+
+# Test outputs
+test-results/
+coverage/
+
+# Temporary files
+tmp/
+temp/
+
+# Build outputs
+dist/
+build/
+
+# Deployment files (contain sensitive info)
+.vercel/
+.netlify/
+.railway/
+
+# Local development
+.local/
