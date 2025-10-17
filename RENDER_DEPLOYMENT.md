@@ -17,7 +17,14 @@
 
 ### 2. Deploy to Render
 
-#### Option A: Web Dashboard (Recommended)
+#### Option A: Auto-Deploy with render.yaml (Recommended)
+1. **Ensure render.yaml is committed** to your main branch
+2. Go to [render.com](https://render.com) and sign up
+3. Click **"New +"** → **"Blueprint"**
+4. Connect your GitHub repository
+5. Render will automatically detect and deploy using the render.yaml configuration
+
+#### Option B: Manual Web Dashboard Setup
 1. Go to [render.com](https://render.com) and sign up
 2. Click **"New +"** → **"Web Service"**
 3. Connect your GitHub repository
@@ -28,10 +35,14 @@
    - **Build Command**: `npm install`
    - **Start Command**: `npm start`
    - **Plan**: `Starter` (free tier)
+   - **Health Check Path**: `/health`
 
-#### Option B: Auto-Deploy with render.yaml
-1. Push the `backend/render.yaml` file to your repository
-2. Render will auto-detect and deploy
+#### Option C: Deploy Specific Branch/Directory
+If you need to deploy from a specific setup:
+1. Select **"Web Service"** (not Blueprint)
+2. Choose your repository and branch
+3. Set **Root Directory** to `backend`
+4. Use the manual configuration above
 
 ### 3. Configuration
 - **Health Check**: `/health` endpoint configured
