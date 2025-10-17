@@ -6,7 +6,7 @@ const CONFIG = {
     // IMPORTANT: Update this URL after deploying your backend service
     // For development: use 'http://localhost:3000'
     // For production: replace with your actual deployment URL
-    BACKEND_URL: 'https://html-to-figma-backend-j260kesyq-omotosojoy-gmailcoms-projects.vercel.app', // Change this to your deployed backend URL
+    BACKEND_URL: 'http://localhost:4000', // Change this to your deployed backend URL
     REQUEST_TIMEOUT: 60000, // 60 seconds
     MAX_RETRIES: 2,
     IMAGE_PROCESSING: {

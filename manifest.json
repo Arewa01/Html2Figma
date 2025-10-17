@@ -4,19 +4,15 @@
     "api": "1.0.0",
     "main": "code.js",
     "ui": "ui.html",
-    "editorType": [
-        "figma"
-    ],
+    "editorType": ["figma"],
     "networkAccess": {
         "allowedDomains": [
-            "https://*.onrender.com",
-            "https://*.railway.app",
-            "https://*.vercel.app",
-            "https://*.render.com",
-            "https://*.amazonaws.com",
-            "https://example.com",
-            "http://localhost:3000"
-        ]
+            "https://example.com"
+        ],
+        "devAllowedDomains": [
+            "http://localhost:4000"
+        ],
+        "reasoning": "The plugin connects to a local backend running on port 4000 for development, and example.com for demo/testing."
     },
     "permissions": [
         "currentuser"
