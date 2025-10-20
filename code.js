@@ -250,11 +250,6 @@ async function scrapeWebsite(url, viewport, retryCount = 0) {
             progress: 20
         });
 
-        // Create abort controller with progressive timeout
-        const controller = new AbortController();
-        const timeoutDuration = CONFIG.REQUEST_TIMEOUT * (1 + retryCount * 0.5); // Increase timeout on retries
-        const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
-
         // Add timeout warning for slow websites
         const warningTimeoutId = setTimeout(() => {
             figma.ui.postMessage({
@@ -272,12 +267,10 @@ async function scrapeWebsite(url, viewport, retryCount = 0) {
             body: JSON.stringify({
                 url: url,
                 viewport: viewport,
-                timeout: timeoutDuration // Pass timeout to backend
-            }),
-            signal: controller.signal
+                timeout: CONFIG.REQUEST_TIMEOUT // Pass timeout to backend
+            })
         });
 
-        clearTimeout(timeoutId);
         clearTimeout(warningTimeoutId);
 
         const elapsedTime = Date.now() - startTime;
@@ -301,7 +294,7 @@ async function scrapeWebsite(url, viewport, retryCount = 0) {
         }
 
         // Log performance metrics
-        console.log(`Scraped ${result.data.elements?.length || 0} elements in ${elapsedTime}ms`);
+        console.log(`Scraped ${result.data.elements ? result.data.elements.length : 0} elements in ${elapsedTime}ms`);
 
         return result.data;
 
@@ -342,15 +335,9 @@ async function scrapeWebsite(url, viewport, retryCount = 0) {
  */
 async function testBackendConnection() {
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-
         const response = await fetch(`${CONFIG.BACKEND_URL}/health`, {
-            method: 'GET',
-            signal: controller.signal
+            method: 'GET'
         });
-
-        clearTimeout(timeoutId);
 
         if (response.ok) {
             const data = await response.json();
@@ -1404,7 +1391,7 @@ class FigmaNodeCreator {
             'start': 'LEFT',
             'end': 'RIGHT'
         };
-        return alignMap[textAlign?.toLowerCase()] || 'LEFT';
+        return alignMap[textAlign ? textAlign.toLowerCase() : ''] || 'LEFT';
     }
 
     /**
@@ -1680,7 +1667,7 @@ class FigmaNodeCreator {
 
                 // Add gradient fill to node (preserve existing fills if any)
                 const existingFills = node.fills || [];
-                node.fills = [...existingFills, gradientFill];
+                node.fills = existingFills.concat([gradientFill]);
 
                 console.log('Successfully applied gradient fill to node');
             }
@@ -2244,7 +2231,7 @@ class AssetManager {
      * Get download statistics
      */
     getStats() {
-        return { ...this.downloadStats };
+        return Object.assign({}, this.downloadStats);
     }
 
     /**
@@ -2318,9 +2305,13 @@ class PerformanceMonitor {
             duration: duration,
             elementsPerSecond: elementsPerSecond,
             successRate: this.metrics.totalElements > 0 ?
-                ((this.metrics.processedElements - this.metrics.failedElements) / this.metrics.totalElements * 100).toFixed(1) : 0,
-            ...this.metrics
+                ((this.metrics.processedElements - this.metrics.failedElements) / this.metrics.totalElements * 100).toFixed(1) : 0
         };
+
+        // Add all metrics properties
+        Object.assign(report, this.metrics);
+
+        return report;
     }
 }
 
@@ -2562,7 +2553,7 @@ async function processElementRecursively(element, parentNode, depth = 0) {
             const childNodes = [];
 
             // Sort children by z-index if available
-            const sortedChildren = [...element.children].sort((a, b) => {
+            const sortedChildren = element.children.slice().sort((a, b) => {
                 const aZ = a.zIndex || 0;
                 const bZ = b.zIndex || 0;
                 return aZ - bZ;
@@ -2596,7 +2587,7 @@ function shouldCreateGroup(element, depth) {
 
     // Group container elements with multiple children
     const containerTags = ['div', 'section', 'article', 'header', 'footer', 'nav', 'main', 'aside'];
-    if (containerTags.includes(element.tagName?.toLowerCase())) {
+    if (containerTags.includes(element.tagName ? element.tagName.toLowerCase() : '')) {
         return element.children && element.children.length > 2;
     }
 
@@ -2639,7 +2630,7 @@ function organizeElementsIntoSections(elements) {
     };
 
     elements.forEach(element => {
-        const tagName = element.tagName?.toLowerCase();
+        const tagName = element.tagName ? element.tagName.toLowerCase() : '';
 
         switch (tagName) {
             case 'header':
