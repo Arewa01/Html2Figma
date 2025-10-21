@@ -4,31 +4,213 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import puppeteer from 'puppeteer';
 
+// ===== CONFIGURATION =====
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// Security middleware
+// ===== MIDDLEWARE =====
 app.use(helmet());
-
-// Rate limiting
 app.use(rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
     message: 'Too many requests from this IP, please try again later.'
 }));
 
-// CORS configuration - Allow Figma plugin requests
 app.use(cors({
-    origin: true, // Allow all origins for development
+    origin: true,
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: false
 }));
 
-// Body parser
 app.use(express.json({ limit: '10mb' }));
 
-// Health check endpoint
+// ===== SERVICES =====
+
+class ScrapingService {
+    static async scrapeWebsite(url, viewport = { width: 1200, height: 800 }) {
+        let browser;
+
+        try {
+            browser = await puppeteer.launch({
+                headless: true,
+                args: ['--no-sandbox', '--disable-setuid-sandbox'],
+                timeout: 30000
+            });
+
+            const page = await browser.newPage();
+            await page.setViewport(viewport);
+            await page.goto(url, { waitUntil: 'networkidle2', timeout: 45000 });
+            await page.waitForTimeout(2000);
+
+            const extractedData = await page.evaluate(() => {
+                // Element extraction logic (runs in browser context)
+                const elements = [];
+                const images = [];
+                let elementId = 0;
+
+                function extractElement(el, id) {
+                    const rect = el.getBoundingClientRect();
+                    const style = window.getComputedStyle(el);
+
+                    // Skip invisible elements
+                    if (rect.width === 0 && rect.height === 0) return null;
+                    if (style.display === 'none' || style.visibility === 'hidden') return null;
+
+                    return {
+                        id: `el-${id}`,
+                        tagName: el.tagName,
+                        textContent: el.innerText?.trim() || '',
+                        bounds: {
+                            x: Math.round(rect.x),
+                            y: Math.round(rect.y),
+                            width: Math.round(rect.width),
+                            height: Math.round(rect.height)
+                        },
+                        styles: {
+                            color: style.color,
+                            backgroundColor: style.backgroundColor,
+                            fontSize: style.fontSize,
+                            fontWeight: style.fontWeight,
+                            fontFamily: style.fontFamily,
+                            textAlign: style.textAlign,
+                            borderRadius: style.borderRadius,
+                            border: style.border,
+                            boxShadow: style.boxShadow,
+                            opacity: style.opacity
+                        },
+                        src: el.tagName === 'IMG' ? el.src : null,
+                        href: el.href || null,
+                        alt: el.alt || null
+                    };
+                }
+
+                // Extract all elements
+                document.querySelectorAll('body *').forEach((el) => {
+                    const element = extractElement(el, elementId++);
+                    if (element) {
+                        elements.push(element);
+
+                        // Track images separately
+                        if (element.tagName === 'IMG' && element.src) {
+                            images.push({
+                                src: element.src,
+                                alt: element.alt || '',
+                                bounds: element.bounds
+                            });
+                        }
+                    }
+                });
+
+                return { elements, images };
+            });
+
+            return {
+                title: await page.title(),
+                elements: extractedData.elements,
+                images: extractedData.images,
+                viewport,
+                url
+            };
+
+        } finally {
+            if (browser) await browser.close();
+        }
+    }
+}
+
+class ElementExtractor {
+    static extractAll() {
+        const elements = [];
+        const images = [];
+        let elementId = 0;
+
+        document.querySelectorAll('body *').forEach((el) => {
+            const element = this.extractElement(el, elementId++);
+            if (element) {
+                elements.push(element);
+
+                // Track images separately
+                if (element.tagName === 'IMG' && element.src) {
+                    images.push({
+                        src: element.src,
+                        alt: element.alt || '',
+                        bounds: element.bounds
+                    });
+                }
+            }
+        });
+
+        return { elements, images };
+    }
+
+    static extractElement(el, id) {
+        const rect = el.getBoundingClientRect();
+        const style = window.getComputedStyle(el);
+
+        // Skip invisible elements
+        if (rect.width === 0 && rect.height === 0) return null;
+        if (style.display === 'none' || style.visibility === 'hidden') return null;
+
+        return {
+            id: `el-${id}`,
+            tagName: el.tagName,
+            textContent: el.innerText?.trim() || '',
+            bounds: {
+                x: Math.round(rect.x),
+                y: Math.round(rect.y),
+                width: Math.round(rect.width),
+                height: Math.round(rect.height)
+            },
+            styles: {
+                color: style.color,
+                backgroundColor: style.backgroundColor,
+                fontSize: style.fontSize,
+                fontWeight: style.fontWeight,
+                fontFamily: style.fontFamily,
+                textAlign: style.textAlign,
+                borderRadius: style.borderRadius,
+                border: style.border,
+                boxShadow: style.boxShadow,
+                opacity: style.opacity
+            },
+            src: el.tagName === 'IMG' ? el.src : null,
+            href: el.href || null,
+            alt: el.alt || null
+        };
+    }
+}
+
+class ValidationService {
+    static validateUrl(url) {
+        if (!url) {
+            throw new Error('URL is required');
+        }
+
+        try {
+            const urlObj = new URL(url);
+            if (!['http:', 'https:'].includes(urlObj.protocol)) {
+                throw new Error('URL must use HTTP or HTTPS protocol');
+            }
+        } catch (error) {
+            throw new Error('Invalid URL format');
+        }
+    }
+
+    static validateViewport(viewport) {
+        if (viewport) {
+            if (viewport.width && (viewport.width < 320 || viewport.width > 3840)) {
+                throw new Error('Viewport width must be between 320 and 3840');
+            }
+            if (viewport.height && (viewport.height < 240 || viewport.height > 2160)) {
+                throw new Error('Viewport height must be between 240 and 2160');
+            }
+        }
+    }
+}
+
+// ===== ROUTES =====
+
 app.get('/health', (req, res) => {
     console.log('🏥 Health check requested');
     res.json({
@@ -38,143 +220,43 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Main scraping endpoint
 app.post('/scrape', async (req, res) => {
-    const { url, viewport = { width: 1200, height: 800 }, timeout = 60000 } = req.body;
     const startTime = Date.now();
-
-    console.log(`🔍 Scraping request for: ${url} (timeout: ${timeout}ms)`);
-
-    if (!url || !isValidUrl(url)) {
-        return res.status(400).json({
-            error: 'Invalid URL provided',
-            message: 'Please provide a valid HTTP or HTTPS URL'
-        });
-    }
-
-    let browser;
+    const { url, viewport } = req.body;
 
     try {
-        browser = await puppeteer.launch({
-            headless: true,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox'
-            ],
-            timeout: 30000
-        });
+        console.log(`🔍 Scraping request for: ${url}`);
 
-        const page = await browser.newPage();
-        await page.setViewport(viewport);
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
-        await page.waitForTimeout(3000);
+        // Validate input
+        ValidationService.validateUrl(url);
+        ValidationService.validateViewport(viewport);
 
-        // Extract elements with their styles and positions
-        const elements = await page.evaluate(() => {
-            const extractedElements = [];
-            let elementId = 0;
+        // Scrape website
+        const result = await ScrapingService.scrapeWebsite(url, viewport);
 
-            function extractElement(element) {
-                if (!element || element.nodeType !== Node.ELEMENT_NODE) return null;
-
-                const rect = element.getBoundingClientRect();
-                const styles = window.getComputedStyle(element);
-
-                // Skip elements that are not visible or have no dimensions
-                if (rect.width === 0 && rect.height === 0) return null;
-                if (styles.display === 'none' || styles.visibility === 'hidden') return null;
-
-                const elementData = {
-                    id: `element-${elementId++}`,
-                    tagName: element.tagName,
-                    textContent: element.textContent ? element.textContent.trim() : '',
-                    bounds: {
-                        x: Math.round(rect.left),
-                        y: Math.round(rect.top),
-                        width: Math.round(rect.width),
-                        height: Math.round(rect.height)
-                    },
-                    styles: {
-                        backgroundColor: styles.backgroundColor,
-                        color: styles.color,
-                        fontSize: parseFloat(styles.fontSize) || 16,
-                        fontFamily: styles.fontFamily,
-                        fontWeight: styles.fontWeight,
-                        fontStyle: styles.fontStyle,
-                        lineHeight: styles.lineHeight,
-                        textAlign: styles.textAlign,
-                        textDecoration: styles.textDecoration,
-                        textTransform: styles.textTransform,
-                        letterSpacing: styles.letterSpacing,
-                        borderRadius: styles.borderRadius,
-                        border: styles.border,
-                        boxShadow: styles.boxShadow,
-                        opacity: parseFloat(styles.opacity) || 1,
-                        backgroundImage: styles.backgroundImage,
-                        backgroundSize: styles.backgroundSize,
-                        backgroundPosition: styles.backgroundPosition,
-                        backgroundRepeat: styles.backgroundRepeat
-                    }
-                };
-
-                // Add src for images
-                if (element.tagName === 'IMG' && element.src) {
-                    elementData.src = element.src;
-                }
-
-                return elementData;
-            }
-
-            // Extract all visible elements
-            const allElements = document.querySelectorAll('*');
-            for (const element of allElements) {
-                const extracted = extractElement(element);
-                if (extracted) {
-                    extractedElements.push(extracted);
-                }
-            }
-
-            return extractedElements;
-        });
-
-        const title = await page.title();
         const processingTime = Date.now() - startTime;
-
-        console.log(`✅ Extracted ${elements.length} elements in ${processingTime}ms`);
+        console.log(`✅ Scraped ${result.elements.length} elements in ${processingTime}ms`);
 
         res.json({
             success: true,
-            data: {
-                title,
-                elements,
-                viewport,
-                url
-            },
+            data: result,
             timestamp: new Date().toISOString(),
             performance: { processingTime }
         });
 
     } catch (error) {
-        console.error('❌ Scraping error:', error);
+        const processingTime = Date.now() - startTime;
+        console.error('❌ Scraping error:', error.message);
+
         res.status(500).json({
             success: false,
             error: 'Failed to scrape website',
-            details: error.message
+            details: error.message,
+            timestamp: new Date().toISOString(),
+            performance: { processingTime }
         });
-    } finally {
-        if (browser) await browser.close();
     }
 });
-
-// Utility function to validate URLs
-function isValidUrl(string) {
-    try {
-        const url = new URL(string);
-        return url.protocol === 'http:' || url.protocol === 'https:';
-    } catch (_) {
-        return false;
-    }
-}
 
 // 404 handler
 app.use((req, res) => {
@@ -185,7 +267,7 @@ app.use((req, res) => {
     });
 });
 
-// Start server
+// ===== SERVER STARTUP =====
 app.listen(PORT, () => {
     console.log('===================================================');
     console.log(`🚀 HTML to Figma Backend Server is running ✅`);
@@ -193,9 +275,6 @@ app.listen(PORT, () => {
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
     console.log(`🔧 Scrape endpoint: POST http://localhost:${PORT}/scrape`);
     console.log('===================================================\n');
-
-    // Quick self-check (just logs, no request)
-    console.log('🧠 Server is ready and waiting for requests...\n');
 });
 
 // Graceful shutdown
